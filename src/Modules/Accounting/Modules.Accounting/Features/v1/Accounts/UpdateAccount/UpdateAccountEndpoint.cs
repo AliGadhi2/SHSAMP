@@ -17,6 +17,6 @@ public static class UpdateAccountEndpoint
                     Results.Ok(await mediator.Send(command with { AccountId = accountId }, ct)))
             .WithName("UpdateAccount")
             .WithSummary("Update an account")
-            .RequirePermission(AccountingPermissions.Accounts.Manage);
+            .RequirePermission(AccountingPermissions.Accounts.Update);
     }
 }

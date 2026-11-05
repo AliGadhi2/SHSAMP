@@ -14,23 +14,17 @@ public interface IAccountingService
     /// the tenant's active subscription plan. Returns null if the tenant has no active subscription
     /// or an invoice already exists for the period.
     /// </summary>
-    Task<AccountDto> GenerateAccountAsync(
-        string accountName,
-        long accountfather,
-        int accounttype,
-        string note,
-        string accountRefrense,
-        CancellationToken cancellationToken = default);
+   
     Task<AccountDto> UpdateAccountinfo(Guid accountid,
 
      string accountName,
      long accountNumber,
-     long accountFather,
-     int accountype,
+     Guid accountFatherID,
+     AccountType accountType,
      string notes,
-     string accountRefrense, CancellationToken cancellationToken = default);
-    Task UpdateAccountAsync(Guid accountId, string accountName, long accountFather, int accountType,
-        string accountRefrense, string? notes, CancellationToken cancellationToken = default);
+     AccountReference accountRefrense, CancellationToken cancellationToken = default);
+    Task UpdateAccountAsync(Guid accountId, string accountName, Guid accountFatherID, AccountType accountType,
+         AccountReference accountRefrense, string? notes, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Creates and issues a Subscription-purpose invoice for one plan term (the term base fee). Called

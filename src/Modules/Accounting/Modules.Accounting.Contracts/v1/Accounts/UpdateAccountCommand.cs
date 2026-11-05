@@ -5,7 +5,7 @@ namespace FSH.Modules.Accounting.Contracts.v1.Accounts;
 public sealed record UpdateAccountCommand(
     Guid AccountId,
     string AccountName,
-    long AccountFather,
-    int AccountType,
-    string AccountRefrense,
+    Guid AccountFather,
+    AccountType AccountType,
+    AccountReference AccountRefrense,
     string? Notes) : ICommand<Guid>;

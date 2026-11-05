@@ -18,8 +18,8 @@ public sealed class AcountingDbInitializer(
             logger.LogInformation("[Accounting] applied migrations");
         }
     }
-
     public async Task SeedAsync(CancellationToken cancellationToken)
+
     {
         
         await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);

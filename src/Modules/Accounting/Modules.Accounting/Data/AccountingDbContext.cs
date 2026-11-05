@@ -8,11 +8,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
-namespace FSH.Modules.Catalog.Data;
+namespace FSH.Modules.Accounting.Data;
 
 public sealed class AccountingDbContext : BaseDbContext
 {
-    public const string Schema = "catalog";
+    public const string Schema = "Accounting";
 
     public AccountingDbContext(
         IMultiTenantContextAccessor<AppTenantInfo> multiTenantContextAccessor,

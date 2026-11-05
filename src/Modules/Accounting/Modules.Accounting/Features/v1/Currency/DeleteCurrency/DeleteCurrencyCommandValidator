@@ -1,0 +1,13 @@
+using FluentValidation;
+using FSH.Modules.Accounting.Contracts.v1.Currencies;
+
+namespace FSH.Modules.Accounting.Features.v1.Currencies.DeleteCurrency;
+
+public sealed class DeleteCurrencyCommandValidator() : AbstractValidator<DeleteCurrencyCommand>
+{ 
+    public DeleteCurrencyCommandValidator()
+    {  
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(128);
+        RuleFor(x => x.IsoCode).MaximumLength(4);
+    }
+}

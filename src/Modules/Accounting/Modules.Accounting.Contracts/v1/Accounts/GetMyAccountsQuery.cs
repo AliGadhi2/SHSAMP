@@ -7,7 +7,7 @@ namespace FSH.Modules.Accounting.Contracts.v1.Accounts;
 //return account where user have primmsions at it 
 public sealed record GetMyAccountsQuery(
     AccountStatus? status,
-    long? AccountFather = null,
+    long? BranchID = null,
     int? AccountType = null,
      
     int PageNumber = 1,

@@ -12,8 +12,10 @@ public sealed class Account : AggregateRoot<Guid>,ISoftDeletable
     public long AccountNumber { get; private set; } = default!;
     public string AccountName { get; private set; } = default!;
     public AccountReference  AccountReference  {  get; private set; } = default!;
-    public long AccountFather { private set; get; }
-     
+
+    public Account AccountFather {  set; get; } = null!;
+    public Guid AccountFatherId {  set; get; }
+     public int BranchID { private set; get; } = 1;
     public AccountStatus Status { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
     public AccountType AccountType { get; private set; }
@@ -37,7 +39,7 @@ public sealed class Account : AggregateRoot<Guid>,ISoftDeletable
         long accountNumber,
         DateTime createdAtUtc,
         string accountName,
-        long accountFather,string notes ,Guid userid,AccountType accountType,AccountReference accountRefrense)
+        Guid accountFather,string notes ,Guid userid,AccountType accountType,AccountReference accountRefrense)
         => CreateDraft(accountNumber, createdAtUtc, accountName, accountFather,
             notes, userid, accountType, accountRefrense);
 
@@ -47,7 +49,7 @@ public sealed class Account : AggregateRoot<Guid>,ISoftDeletable
         
         string accountName,
 
-        long accountFather,
+        Guid accountFather,
         string Notes,Guid userid, AccountType accountType,AccountReference  accountRefrense)
     {
 
@@ -61,7 +63,7 @@ public sealed class Account : AggregateRoot<Guid>,ISoftDeletable
            
             AccountType = accountType,
             AccountReference = accountRefrense,
-            AccountFather= accountFather,
+            AccountFatherId= accountFather,
             Notes = Notes,
             Status = AccountStatus.Activ,
 
@@ -108,7 +110,7 @@ public sealed class Account : AggregateRoot<Guid>,ISoftDeletable
     }
     public void UpdateAccountinfo(string accountName,
         long accountNumber,
-        long accountFather,
+        Guid accountFatherID,
         AccountType accountType,
         string notes,
         AccountReference  accountRefrense)
@@ -118,7 +120,7 @@ public sealed class Account : AggregateRoot<Guid>,ISoftDeletable
         AccountReference  = accountRefrense;
         AccountType = accountType;
         Notes = notes;
-        AccountFather = accountFather;
+        AccountFatherId = accountFatherID;
 
     }
 

@@ -17,6 +17,6 @@ public static class DeleteAccountEndpoint
                     Results.Ok(await mediator.Send(new DeleteAccountCommand(accountId), ct)))
             .WithName("DeleteAccount")
             .WithSummary("Delete a leaf account")
-            .RequirePermission(AccountingPermissions.Accounts.Manage);
+            .RequirePermission(AccountingPermissions.Accounts.Delete);
     }
 }

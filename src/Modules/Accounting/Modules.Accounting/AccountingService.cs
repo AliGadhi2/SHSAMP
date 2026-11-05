@@ -27,15 +27,16 @@ public sealed class AccountingService : IAccountingService
         _cache = cache;
         _logger = logger;
     }
+ 
 
     public async Task<AccountDto> UpdateAccountinfo( Guid accountid,
        
         string accountName,
         long accountNumber,
-        long accountFather,
-        int accountype,
+        Guid accountFatherID,
+        AccountType accountType,
         string notes,
-        string accountRefrense, CancellationToken cancellationToken = default)
+        AccountReference accountRefrense, CancellationToken cancellationToken = default)
     {
         var account = await _cache.GetOrCreateAsync($"account_{accountid}", async entry =>
         {
@@ -57,44 +58,46 @@ public sealed class AccountingService : IAccountingService
        
         account.UpdateAccountinfo(accountName,
         accountNumber,
-        accountFather,
-        accountype,
+        accountFatherID,
+        accountType,
         notes,
         accountRefrense);
         return account.ToDto();
 
     }
 
-    public async Task UpdateAccountAsync(Guid accountId, string accountName, long accountFather, int accountType,
-        string accountRefrense, string? notes, CancellationToken cancellationToken = default)
+    public async Task UpdateAccountAsync(Guid accountId, string accountName, Guid accountFatherID, AccountType accountType,
+        AccountReference accountRefrense, string? notes, CancellationToken cancellationToken = default)
     {
         var account = await LoadAccountAsync(accountId, cancellationToken).ConfigureAwait(false);
         var children = await _db.Accounts
-            .Where(item => item.AccountFather == account.AccountNumber && item.Id != accountId)
+            .Where(item => item.AccountFatherId == account.Id && item.Id != accountId)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
+            var FatherAccountNumber = await _db.Accounts.FirstOrDefaultAsync(item => item.Id == accountFatherID, cancellationToken).ConfigureAwait(false)?? throw new CustomException("The selected parent account was not found.",
+                Enumerable.Empty<string>(), System.Net.HttpStatusCode.BadRequest);
         if (children.Count > 0 && account.AccountType != accountType)
         {
             throw new CustomException("The account type cannot change while the account has children.",
                 Enumerable.Empty<string>(), System.Net.HttpStatusCode.BadRequest);
         }
 
-        if (children.Count > 0 && accountFather != account.AccountFather)
+        if (children.Count > 0 && accountFatherID != account.AccountFatherId)
         {
             throw new CustomException("An account with children cannot be moved. Move its child accounts first.",
                 Enumerable.Empty<string>(), System.Net.HttpStatusCode.BadRequest);
         }
 
-        if (accountFather == account.AccountNumber)
+        if (accountFatherID == account.Id)
         {
             throw new CustomException("An account cannot be its own parent.",
                 Enumerable.Empty<string>(), System.Net.HttpStatusCode.BadRequest);
         }
 
-        if (accountFather > 0)
+        if (accountFatherID != Guid.Empty)
         {
             var parent = await _db.Accounts.SingleOrDefaultAsync(
-                item => item.AccountNumber == accountFather, cancellationToken).ConfigureAwait(false);
-            if (parent is null || parent.AccountType != 1)
+                item => item.Id == accountFatherID, cancellationToken).ConfigureAwait(false);
+            if (parent is null || parent.AccountType != AccountType.Sub)
             {
                 throw new CustomException("The selected parent must be a main account.",
                     Enumerable.Empty<string>(), System.Net.HttpStatusCode.BadRequest);
@@ -102,7 +105,7 @@ public sealed class AccountingService : IAccountingService
         }
 
         var siblings = await _db.Accounts
-            .Where(item => item.AccountFather == accountFather && item.Id != accountId)
+            .Where(item => item.AccountFatherId == accountFatherID && item.Id != accountId)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
         if (siblings.Count > 0 && siblings.Any(item => item.AccountType != accountType))
         {
@@ -110,10 +113,10 @@ public sealed class AccountingService : IAccountingService
                 Enumerable.Empty<string>(), System.Net.HttpStatusCode.BadRequest);
         }
 
-        long newAccountNumber = accountFather == 0
+        long newAccountNumber = FatherAccountNumber.AccountNumber == 0
             ? (siblings.Select(item => (long?)item.AccountNumber).Max() ?? 0) + 1
             : Enumerable.Range(1, 9)
-                .Select(index => checked(accountFather * 10 + index))
+                .Select(index => checked(FatherAccountNumber.AccountNumber * 10 + index))
                 .FirstOrDefault(candidate => siblings.All(item => item.AccountNumber != candidate));
         if (newAccountNumber == 0)
         {
@@ -130,93 +133,10 @@ public sealed class AccountingService : IAccountingService
                 Enumerable.Empty<string>(), System.Net.HttpStatusCode.Conflict);
         }
 
-        account.UpdateAccountinfo(accountName, newAccountNumber, accountFather, accountType, notes ?? "", accountRefrense);
+        account.UpdateAccountinfo(accountName, newAccountNumber, accountFatherID, accountType, notes ?? "", accountRefrense);
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
-    public async Task<AccountDto> GenerateAccountAsync(string accountName, long accountfather, int accounttype, string note, string accountRefrense, CancellationToken cancellationToken = default)
-    {
-        Account? parent = null;
-        if (accountfather > 0)
-        {
-            parent = await _db.Accounts
-                .SingleOrDefaultAsync(account => account.AccountNumber == accountfather, cancellationToken)
-                .ConfigureAwait(false);
-            if (parent is null)
-            {
-                throw new CustomException("The selected parent account was not found.",
-                    Enumerable.Empty<string>(), System.Net.HttpStatusCode.BadRequest);
-            }
-
-            if (parent.AccountType != 1)
-            {
-                throw new CustomException("Only a main account can have child accounts.",
-                    Enumerable.Empty<string>(), System.Net.HttpStatusCode.BadRequest);
-            }
-        }
-
-        var children = await _db.Accounts
-            .Where(account => account.AccountFather == accountfather)
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
-        if (children.Count > 0 && children.Any(child => child.AccountType != accounttype))
-        {
-            throw new CustomException("Child accounts must use the same account type.",
-                Enumerable.Empty<string>(), System.Net.HttpStatusCode.BadRequest);
-        }
-
-        long accountNumber;
-        if (accountfather == 0)
-        {
-            accountNumber = (await _db.Accounts
-                .Where(account => account.AccountFather == 0)
-                .Select(account => (long?)account.AccountNumber)
-                .MaxAsync(cancellationToken)
-                .ConfigureAwait(false) ?? 0) + 1;
-        }
-        else
-        {
-            long firstChildNumber = checked(accountfather * 10 + 1);
-            long lastChildNumber = checked(accountfather * 10 + 9);
-            accountNumber = firstChildNumber;
-            while (children.Any(child => child.AccountNumber == accountNumber)
-                && accountNumber < lastChildNumber)
-            {
-                accountNumber++;
-            }
-
-            if (children.Any(child => child.AccountNumber == accountNumber))
-            {
-                throw new CustomException("The parent account has reached its maximum child accounts.",
-                    Enumerable.Empty<string>(), System.Net.HttpStatusCode.BadRequest);
-            }
-        }
-
-        bool duplicateName = await _db.Accounts.AnyAsync(
-            account => account.AccountName == accountName,
-            cancellationToken).ConfigureAwait(false);
-        if (duplicateName)
-        {
-            throw new CustomException("An account with this name already exists for the tenant.",
-                Enumerable.Empty<string>(), System.Net.HttpStatusCode.Conflict);
-        }
-
-        bool duplicateNumber = await _db.Accounts.AnyAsync(
-            account => account.AccountNumber == accountNumber,
-            cancellationToken).ConfigureAwait(false);
-        if (duplicateNumber)
-        {
-            throw new CustomException(
-                "An account with this number already exists.",
-                Enumerable.Empty<string>(),
-                System.Net.HttpStatusCode.Conflict);
-        }
-        Account newAccount = Account.CreateAccount(accountNumber, DateTime.UtcNow, accountName, accountfather, note, Guid.Empty, accounttype, accountRefrense);
-        _db.Accounts.Add(newAccount);
-        await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        return newAccount.ToDto();
-       
-    }
-
+   
 
     // Issue/MarkPaid/Void load here. BillingDbContext isn't tenant-filtered, so scope to caller: root
     // mutates any invoice; a tenant caller is pinned to its own (cross-tenant id → 404, can't mutate).
@@ -261,7 +181,7 @@ public sealed class AccountingService : IAccountingService
     {
         var account = await LoadAccountAsync(accountId, cancellationToken).ConfigureAwait(false);
         bool hasChildren = await _db.Accounts.AnyAsync(
-            child => child.AccountFather == account.AccountNumber,
+            child => child.AccountFatherId == account.Id,
             cancellationToken).ConfigureAwait(false);
         if (hasChildren)
         {
@@ -281,23 +201,8 @@ public sealed class AccountingService : IAccountingService
         account.Depanding();
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
-   
 
-// [ApiController]
-// [Route("api/accounts")]
-// public class AccountsController : ControllerBase
-// {
-//     // GET: api/accounts/references
-//     [HttpGet("references")]
-//     public IActionResult GetReferences()
-//     {
-//         var options = Enum.GetValues<AccountReference>()
-//                           .Select(v => new { Value = (int)v, Label = v.ToArabic() })
-//                           .ToList();
-
-//         return Ok(options);
-//         // الناتج: [ { "value": 0, "label": "رئيسي" }, { "value": 1, "label": "فرعي" } ]
-//     }
-// }
-
+ 
 }
+
+    
